@@ -1,0 +1,46 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Ingredients {
+  id            Int              @id @default(autoincrement())
+  name          String
+  image_path    String
+  tags          Tags[]           @relation("IngredientTags")
+  recipes       SavedRecipes[]   @relation("RecipeIngredients") 
+}
+
+model CookingMethods {
+  id       Int      @id @default(autoincrement())
+  template String
+}
+
+model Tags {
+  id          Int           @id @default(autoincrement())
+  name        String        @unique // Make name unique
+  ingredients Ingredients[] @relation("IngredientTags")
+  recipes     SavedRecipes[] @relation("RecipeTags")
+}
+
+model CookingSteps {
+  id         Int           @id @default(autoincrement())
+  step_num   Int
+  content    String
+  recipe_id  Int
+  recipe     SavedRecipes  @relation(fields: [recipe_id], references: [id])
+}
+
+model SavedRecipes {
+  id            Int             @id @default(autoincrement())
+  name          String          
+  image_path    String
+  steps         CookingSteps[]
+  ingredients   Ingredients[]   @relation("RecipeIngredients")
+  tags          Tags[]          @relation("RecipeTags")       
+  likes         Int             @default(0)
+}

@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { useTags } from '../Hooks/tagsHook';
 import { Tag } from '../types/tag';
 
-export default function AddIngredient() {
+export default function GenerateRecipe() {
   const tags: Tag[] = useTags();
 
   const [checkedOptions, setCheckedOptions] = useState<Record<string, boolean>>({});
-  const [ingredientName, setIngredientName] = useState<string>('');
+  const [recipeName, setRecipeName] = useState<string>('');
+  const [numSteps, setNumSteps] = useState<number>(1); // Default to 1
+  const [generatedSteps, setGeneratedSteps] = useState<string[] | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const checkedCount = Object.values(checkedOptions).filter(Boolean).length;
@@ -30,35 +32,44 @@ export default function AddIngredient() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!ingredientName.trim()) {
-      setStatusMessage('Ingredient name is required.');
+  
+    if (!recipeName.trim()) {
+      setStatusMessage('Recipe name is required.');
       return;
     }
-
+  
+    if (numSteps <= 0) {
+      setStatusMessage('Please specify a valid number of steps.');
+      return;
+    }
+  
     const selectedTags = Object.keys(checkedOptions).filter((tag) => checkedOptions[tag]);
-
+  
     if (selectedTags.length === 0) {
       setStatusMessage('At least one tag must be selected.');
       return;
     }
-
+  
     try {
-      const response = await fetch('/api/ingredients', {
+      const response = await fetch('/api/generateRecipe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: ingredientName, tags: selectedTags }),
+        body: JSON.stringify({
+          name: recipeName,
+          tags: selectedTags,
+          numSteps,
+        }),
       });
-
+  
       if (response.ok) {
-        setStatusMessage('Ingredient created successfully!');
-        setIngredientName('');
-        setCheckedOptions({});
+        const data = await response.json();
+        setGeneratedSteps(data.steps);
+        setStatusMessage(`Recipe "${data.name}" saved successfully!`);
       } else {
         const errorData = await response.json();
-        setStatusMessage(errorData.error || 'Failed to create ingredient.');
+        setStatusMessage(errorData.error || 'Failed to generate and save recipe.');
       }
     } catch (error) {
       console.error(error);
@@ -66,25 +77,33 @@ export default function AddIngredient() {
     }
   };
 
-  if (!tags) {
-    return <div>Loading...</div>;
-  }
-
   return (
     <div>
       <Link className="back-link" href={"forge"}>BACK</Link>
       <div className="logo-banner shadow">FLAVOR FORGE</div>
-      <form className="add-ingredient-form" onSubmit={handleSubmit}>
-        <button type="submit" className="button-2">Add Ingredient</button>
-        <h1 className="add-ingredient-text-1">Enter Ingredient Name:</h1>
+      <form className="generate-recipe-form" onSubmit={handleSubmit}>
+        <button type="submit" className="button-2">Generate</button>
+        <h1 className="generate-recipe-text-1">Enter Recipe Name:</h1>
         <input
           type="text"
-          id="ingredient-name"
-          value={ingredientName}
-          onChange={(e) => setIngredientName(e.target.value)}
+          id="recipe-name"
+          value={recipeName}
+          onChange={(e) => setRecipeName(e.target.value)}
         />
-        <hr />
-        <h1 className="add-ingredient-text-2">
+        <h1 className="generate-recipe-text-2">Number of Steps:</h1>
+        <select
+          id="num-steps"
+          className="steps-input"
+          value={numSteps}
+          onChange={(e) => setNumSteps(parseInt(e.target.value))}
+        >
+          {Array.from({ length: 15 }, (_, index) => index + 1).map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+        <h1 className="generate-recipe-text-3">
           <span>{checkedCount}/3</span> - Select Up To 3 Tags:
         </h1>
         <div className="tag-selection-container">
@@ -105,6 +124,16 @@ export default function AddIngredient() {
           ))}
         </div>
         {statusMessage && <p className="status-message">{statusMessage}</p>}
+        {generatedSteps && (
+          <div>
+            <h2>Generated Steps:</h2>
+            <ol>
+              {generatedSteps.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        )}
       </form>
     </div>
   );
